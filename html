@@ -1,1 +1,55 @@
-jsjajq
+import os
+from pytube import YouTube
+from pydub import AudioSegment
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, CallbackContext
+
+def start(update: Update, context: CallbackContext) -> None:
+    update.message.reply_text('YouTube videosini yuklash uchun URL manzilini yuboring.')
+
+def download_video(update: Update, context: CallbackContext) -> None:
+    if context.args:
+        url = ' '.join(context.args)
+        try:
+            yt = YouTube(url)
+
+            # Video yuklash
+            video_stream = yt.streams.get_highest_resolution()
+            video_file = video_stream.download(filename='video.mp4')
+
+            # Audio yuklash
+            audio_stream = yt.streams.filter(only_audio=True).first()
+            audio_file = audio_stream.download(filename='audio.mp4')
+
+            # Audio faylni MP3 formatga o'zgartirish
+            audio_mp3_file = 'audio.mp3'
+            audio_segment = AudioSegment.from_file(audio_file, format='mp4')
+            audio_segment.export(audio_mp3_file, format='mp3')
+
+            # Foydalanuvchiga video va audio jo'natish
+            with open(video_file, 'rb') as v_file:
+                update.message.reply_video(v_file)
+            with open(audio_mp3_file, 'rb') as a_file:
+                update.message.reply_audio(a_file)
+
+            # Fayllarni o'chirish
+            os.remove(video_file)
+            os.remove(audio_file)
+            os.remove(audio_mp3_file)
+
+        except Exception as e:
+            update.message.reply_text(f"Xato: {str(e)}")
+    else:
+        update.message.reply_text('Iltimos, YouTube video URL manzilini kiriting.')
+
+def main() -> None:
+    updater = Updater("YOUR_TELEGRAM_BOT_TOKEN")
+
+    updater.dispatcher.add_handler(CommandHandler('start', start))
+    updater.dispatcher.add_handler(CommandHandler('download', download_video))
+
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == '__main__':
+    main()
